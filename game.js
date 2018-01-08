@@ -42,27 +42,41 @@ var openCell = function (row, col) {
     
     // TODO: call createBackFaceContent to create the content of cell
     // and append the content to the cell element as a child
-    cell = cell.createBackFaceContent();
+    cell.appendChild(createBackFaceContent(row, col));
     // TODO: increment total cell opened GAME.openCellCount
-    Game.openCellCount++;
+    GAME.openCellCount++;
 }
 
 var openBoundary = function (row, col) {
     // INPUT:  row and column of blank cell opened
     // OUTPUT: call openCell for this cell and all cells around it until you hit a open or non blank cell
     // Note:   this will be a recursive methid (backtracking)
-    
+    if(row<0||col<0||row>=GAME.rows||col>=GAME.cols)
+        return;
     // get the cell element belonging to that row and column
     var cell = GAME.Cells[row][col];
-
+    if(cell.classList.contains("open"))
+        return;
     // 1. if invalid row/col or cell is open, simply return
     //    To detect if cell is open, check if it has a class of "open"
     // 2. if it is a non-bomb cell (i.e. GAME.layout[row][col] >= 0) open the cell
+    if(GAME.layout[row][col]>=0){
+        openCell(row,col);
+        if(GAME.layout[row][col]==0){
+            var i,j;
+            for(i=row-1;i<=row+1;i++){
+                for(j=col-1;j<=col+1;j++){
+                    openBoundary(i,j);
+                }
+            }
+        }
+    }
     // 3. if it is a blank cell recurse for all eight neighbors
 }
 
 var endGame = function () {
     // remove flags and open all cells. Mark incorrectly marked flags
+    stopTimer();
     for (var row = 0; row < GAME.rows; row++) {
         for (var col = 0; col < GAME.cols; col++) {
             var cell = GAME.Cells[row][col]; // fetch the cell dom element
@@ -70,12 +84,20 @@ var endGame = function () {
             //      (use contains property of classList method )
             //      https://www.w3schools.com/jsref/prop_element_classlist.asp
             // open the cell that is closed
+            if(cell.classList.contains('closed'))
+                openCell(row,col);
             // if cell is flagged (check if cell's "marked" attribure is set to "true")
+
             //      https://www.w3schools.com/jsref/met_element_getattribute.asp
             // then remove the flag (cell.firstchild) by using removeChild method on dom element
+            if(cell.getAttribute('marked')=='true'){
+                cell.removeChild(cell.firstChild);
+            }
             //      https://www.w3schools.com/jsref/met_node_removechild.asp
             // if cell was marked but it does not have a bomb i.e. GAME.layout[row][col] != -1
             // then add "Error" class to the cell's dom element
+            if(cell.getAttribute('marked')=='true'&& GAME.layout[row][col]!=-1)
+                cell.classList.add('error');
         }
     }
 }
@@ -126,8 +148,8 @@ var handleLeftClick = function (row, col) {
             // make our gametoon unhappy
             document.getElementById("toon").className = "gametoon icon-emo-unhappy";
             // TODO: add "blast" class to the cell having the bomb clicked
-
-            gameOver(); // call gameOver
+            GAME.Cells[row][col].classList.add('blast');
+             gameOver(); // call gameOver
         } else {
             // open many cells till  boundary
             openBoundary(row, col); // open boundary till you get nonblank cell
@@ -139,6 +161,9 @@ var handleLeftClick = function (row, col) {
 
 var validMove = function (row, col) {
     // TODO: return true if GAME.Cells[row][col] dom element has a class of "closed"
+    if(GAME.Cells[row][col].classList.contains('closed'))
+        return true;
+    return false;
 }
 
 var toggleMarkCell = function (row, col, marked) {
@@ -148,11 +173,17 @@ var toggleMarkCell = function (row, col, marked) {
         if (marked) {
             // TODO: set "marked" attribute of cell to "false"
             // TODO: remove cell.firstChild from cell
+            cell.setAttribute("marked",false);
+            cell.removeChild(cell.firstChild)
             GAME.flaggedCells--;
         } else {
             // TODO: set "marked" attribute of cell to "true"
             // TODO: create an "i" element and set its "Class" attribute to "red icon-golf"
             //       append that to cell
+            cell.setAttribute('marked',true);
+            var i =document.createElement('i')
+            i.setAttribute('class','red icon-golf')
+            cell.appendChild(i);
             GAME.flaggedCells++;
         }
     }
@@ -321,9 +352,9 @@ function zeros(dimensions) {
 
 var updateNeighborCounts = function (row, col) {
     var i, j;
-    for(i=row-1;(i>=0 && i<=row+1 && i<GAME.rows);i++){
-        for(j=col-1;j>=0 && j<=col+1 && j<GAME.cols;j++){
-            if(GAME.layout[i][j]!=-1)
+    for(i=row-1;i<=row+1;i++){
+        for(j=col-1; j<=col+1;j++){
+            if((i>=0&&i<GAME.rows && j>=0 && j<GAME.cols)&&GAME.layout[i][j]!=-1)
                 GAME.layout[i][j]++;
         }
     }
@@ -338,13 +369,14 @@ var setBombs = function (row, col) {
 
     var i, j;
     // place bombs
-    for (var count = 0; count < GAME.bombs; count++) {
+    for (var count = 0; count != GAME.bombs;) {
         //TODO: get random row/col using randomInt method you wrote earlier
         i = randomInt(0,GAME.rows)
         j= randomInt(0,GAME.cols)
         //NOTE: 1. check for duplicates, you should not place bomb in a location already having a bomb
-        if(GAME.layout[i][j]!=-1){
+        if(GAME.layout[i][j]!=-1 && (Math.abs(i-row)>1 && Math.abs(j-col)) ){
             GAME.layout[i][j]=-1;
+            count++;
             updateNeighborCounts(i, j);
         }
         //      2. you cannot place a bomb in clicked row/col (passed variables) or in their immediate neighbors

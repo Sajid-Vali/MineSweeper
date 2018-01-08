@@ -283,6 +283,7 @@ table {
 
 .error {
     background-image: url(images/wrong.png);
+    background-size: cover; 
 }
 
 .stats {
